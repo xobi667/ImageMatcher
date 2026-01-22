@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>图片匹配工具 v2.0</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: "Microsoft YaHei", Arial; background: linear-gradient(135deg, #667eea, #764ba2); min-height: 100vh; padding: 20px; }
+        .container { max-width: 1100px; margin: 0 auto; background: #fff; border-radius: 15px; padding: 30px; box-shadow: 0 10px 40px rgba(0,0,0,0.3); }
+        h1 { text-align: center; color: #333; margin-bottom: 5px; }
+        .version { text-align: center; color: #666; font-size: 12px; margin-bottom: 15px; }
+        .log { background: #1e1e1e; color: #0f0; padding: 15px; border-radius: 8px; height: 100px; overflow-y: auto; font-family: Consolas, monospace; font-size: 12px; margin-bottom: 15px; }
+        .progress-box { background: #f5f5f5; padding: 20px; border-radius: 10px; margin-bottom: 15px; display: none; }
+        .progress-bar { height: 25px; background: #e0e0e0; border-radius: 12px; overflow: hidden; }
+        .progress-fill { height: 100%; background: linear-gradient(90deg, #667eea, #764ba2); width: 0%; transition: width 0.3s; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; font-size: 12px; }
+        .progress-info { margin-top: 8px; font-size: 12px; color: #666; }
+        .btn { padding: 10px 20px; border: none; border-radius: 8px; font-size: 14px; font-weight: bold; cursor: pointer; margin: 4px; transition: all 0.2s; }
+        .btn-primary { background: #667eea; color: #fff; }
+        .btn-primary:hover { background: #5a6fd6; }
+        .btn-success { background: #28a745; color: #fff; }
+        .btn-success:hover { background: #218838; }
+        .btn-warning { background: #ffc107; color: #333; }
+        .btn-danger { background: #dc3545; color: #fff; }
+        .btn-danger:hover { background: #c82333; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .folder-box { background: #f0f0f0; padding: 15px; border-radius: 8px; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+        .folder-path { flex: 1; min-width: 200px; padding: 10px; background: #fff; border: 1px solid #ddd; border-radius: 5px; font-size: 14px; }
+        .upload-area { border: 3px dashed #667eea; border-radius: 15px; padding: 25px; text-align: center; background: #f8f9ff; margin: 15px 0; cursor: pointer; transition: all 0.2s; }
+        .upload-area:hover { background: #eef0ff; border-color: #5a6fd6; }
+        .upload-area.disabled { opacity: 0.5; cursor: not-allowed; }
+        .results { margin-top: 15px; }
+        .result-item { background: #f5f5f5; padding: 12px 15px; border-radius: 8px; margin: 8px 0; display: flex; justify-content: space-between; align-items: center; transition: all 0.2s; }
+        .result-item:hover { background: #e8e8e8; transform: translateX(3px); }
+        .result-path { flex: 1; font-size: 12px; word-break: break-all; margin-right: 10px; color: #333; }
+        .result-buttons { display: flex; gap: 5px; flex-shrink: 0; }
+        .btn-copy-success { background: #28a745 !important; }
+        .similarity-badge { background: linear-gradient(135deg, #667eea, #764ba2); color: #fff; padding: 4px 10px; border-radius: 20px; font-size: 12px; font-weight: bold; margin-right: 10px; min-width: 55px; text-align: center; }
+        .similarity-badge.exact { background: linear-gradient(135deg, #28a745, #20c997); }
+        .similarity-badge.high { background: linear-gradient(135deg, #667eea, #764ba2); }
+        .similarity-badge.medium { background: linear-gradient(135deg, #ffc107, #fd7e14); color: #333; }
+        .similarity-badge.low { background: linear-gradient(135deg, #6c757d, #adb5bd); }
+        .btn-small { padding: 6px 12px; font-size: 12px; }
+        .status { padding: 10px 15px; background: #e7f3ff; border-radius: 8px; margin-bottom: 15px; text-align: center; font-size: 14px; }
+        .status.ready { background: #d4edda; color: #155724; }
+        .hidden { display: none; }
+        .tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+        .tab { padding: 10px 20px; background: #e0e0e0; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 13px; transition: all 0.2s; }
+        .tab.active { background: #667eea; color: #fff; }
+        .tab:hover:not(.active) { background: #d0d0d0; }
+        #preview { max-width: 180px; max-height: 140px; margin: 10px auto; display: none; border-radius: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); }
+        .threshold-box { background: #f8f9ff; padding: 15px; border-radius: 8px; margin: 15px 0; display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .threshold-box label { font-weight: bold; color: #333; }
+        .threshold-slider { flex: 1; min-width: 200px; height: 8px; -webkit-appearance: none; background: linear-gradient(90deg, #6c757d, #ffc107, #28a745); border-radius: 4px; }
+        .threshold-slider::-webkit-slider-thumb { -webkit-appearance: none; width: 22px; height: 22px; background: #667eea; border-radius: 50%; cursor: pointer; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }
+        .threshold-value { background: #667eea; color: #fff; padding: 5px 12px; border-radius: 20px; font-weight: bold; min-width: 60px; text-align: center; }
+        .algo-info { background: #fff3cd; padding: 10px 15px; border-radius: 8px; margin-bottom: 15px; font-size: 12px; color: #856404; }
+        .result-count { color: #666; font-size: 13px; margin-bottom: 10px; }
+
+        /* 悬停预览 */
+        .hover-preview {
+            position: fixed;
+            z-index: 9999;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 8px 40px rgba(0,0,0,0.4);
+            padding: 8px;
+            display: none;
+            pointer-events: none;
+            max-width: 500px;
+            max-height: 500px;
+        }
+        .hover-preview img {
+            max-width: 480px;
+            max-height: 480px;
+            border-radius: 8px;
+            display: block;
+        }
+        .hover-preview .loading {
+            width: 200px;
+            height: 150px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #666;
+            font-size: 14px;
+        }
+        .result-item {
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>图片匹配工具</h1>
+        <div class="version">v2.0 全面升级版 - 多算法综合匹配</div>
+
+        <div class="log" id="log"></div>
+        <div class="status" id="status">请选择文件夹并开始索引</div>
+
+        <div class="folder-box">
+            <span>文件夹：</span>
+            <input type="text" class="folder-path" id="folderPath" value="D:\L" placeholder="选择文件夹...">
+            <button class="btn btn-warning" onclick="selectFolder()">浏览...</button>
+            <button class="btn btn-primary" id="indexBtn" onclick="startIndex()">开始索引</button>
+            <button class="btn btn-danger" id="stopBtn" onclick="stopIndex()" style="display:none;">停止</button>
+            <button class="btn btn-danger" onclick="clearCache()">清理缓存</button>
+        </div>
+
+        <div class="progress-box" id="progressBox">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill">0%</div>
+            </div>
+            <div class="progress-info" id="progressInfo">准备中...</div>
+        </div>
+
+        <div class="threshold-box">
+            <label>相似度阈值：</label>
+            <input type="range" class="threshold-slider" id="thresholdSlider" min="30" max="95" value="60">
+            <div class="threshold-value" id="thresholdValue">60%</div>
+            <span style="font-size: 12px; color: #666;">（越低显示越多结果，越高越精确）</span>
+        </div>
+
+        <div class="upload-area disabled" id="uploadArea" onclick="triggerUpload()">
+            <div style="font-size: 40px;">📤</div>
+            <div style="margin-top: 8px; font-size: 15px;">拖拽或点击上传图片进行搜索</div>
+            <div style="margin-top: 5px; color: #999; font-size: 13px;">请先完成索引</div>
+            <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="searchImage(event)">
+        </div>
+
+        <img id="preview">
+
+        <div class="results hidden" id="results">
+            <div class="tabs">
+                <button class="tab active" onclick="showTab('exact', this)">完全相同 (<span id="exactCount">0</span>)</button>
+                <button class="tab" onclick="showTab('similar', this)">视觉相似 (<span id="similarCount">0</span>)</button>
+            </div>
+            <div class="result-count" id="resultCount"></div>
+            <div id="exactList"></div>
+        <div id="similarList" class="hidden"></div>
+        </div>
+    </div>
+
+    <!-- 悬停预览框 -->
+    <div class="hover-preview" id="hoverPreview">
+        <div class="loading" id="previewLoading">加载中...</div>
+        <img id="previewImg" style="display:none;">
+    </div>
+
+    <script>
+        let isIndexed = false;
+        let progressTimer = null;
+
+        // 阈值滑块
+        const slider = document.getElementById('thresholdSlider');
+        const thresholdValue = document.getElementById('thresholdValue');
+        slider.addEventListener('input', function() {
+            thresholdValue.textContent = this.value + '%';
+        });
+
+        function log(msg) {
+            const d = document.getElementById('log');
+            const t = new Date().toLocaleTimeString();
+            d.innerHTML += '<div>[' + t + '] ' + msg + '</div>';
+            d.scrollTop = d.scrollHeight;
+        }
+
+        log('系统就绪 - v2.0 多算法匹配');
+
+        async function selectFolder() {
+            log('打开文件夹选择...');
+            try {
+                const res = await fetch('/api/select-folder', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    document.getElementById('folderPath').value = data.folder;
+                    log('已选择: ' + data.folder);
+                } else {
+                    log('已取消');
+                }
+            } catch (e) {
+                log('错误: ' + e.message);
+            }
+        }
+
+        async function startIndex() {
+            const folder = document.getElementById('folderPath').value.trim();
+            if (!folder) {
+                log('请先选择文件夹！');
+                return;
+            }
+
+            document.getElementById('indexBtn').style.display = 'none';
+            document.getElementById('stopBtn').style.display = 'inline-block';
+
+            log('开始索引: ' + folder);
+            document.getElementById('progressBox').style.display = 'block';
+
+            try {
+                const res = await fetch('/api/index', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ folder: folder })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    log('索引已启动 (多算法模式)...');
+                    startProgressPolling();
+                } else {
+                    log('错误: ' + data.error);
+                    document.getElementById('indexBtn').style.display = 'inline-block';
+                    document.getElementById('stopBtn').style.display = 'none';
+                }
+            } catch (e) {
+                log('请求失败: ' + e.message);
+                document.getElementById('indexBtn').style.display = 'inline-block';
+                document.getElementById('stopBtn').style.display = 'none';
+            }
+        }
+
+        async function stopIndex() {
+            log('正在停止索引...');
+            try {
+                await fetch('/api/stop', { method: 'POST' });
+                log('已发送停止请求');
+            } catch (e) {
+                log('停止失败: ' + e.message);
+            }
+        }
+
+        async function clearCache() {
+            log('清理缓存...');
+            try {
+                await fetch('/api/clear', { method: 'POST' });
+                isIndexed = false;
+                document.getElementById('status').textContent = '缓存已清理，请重新索引';
+                document.getElementById('status').className = 'status';
+                document.getElementById('uploadArea').classList.add('disabled');
+                document.getElementById('results').classList.add('hidden');
+                log('缓存已清理');
+            } catch (e) {
+                log('清理失败: ' + e.message);
+            }
+        }
+
+        function startProgressPolling() {
+            progressTimer = setInterval(async function() {
+                try {
+                    const res = await fetch('/api/progress');
+                    const p = await res.json();
+
+                    var pct = p.total > 0 ? Math.round(p.current / p.total * 100) : 0;
+                    document.getElementById('progressFill').style.width = pct + '%';
+                    document.getElementById('progressFill').textContent = pct + '%';
+                    document.getElementById('progressInfo').textContent = '已处理: ' + p.current + ' / 已发现: ' + p.total + ' - ' + p.current_file;
+
+                    if (p.done) {
+                        clearInterval(progressTimer);
+                        document.getElementById('indexBtn').style.display = 'inline-block';
+                        document.getElementById('indexBtn').textContent = '重新索引';
+                        document.getElementById('stopBtn').style.display = 'none';
+                        document.getElementById('progressBox').style.display = 'none';
+
+                        if (p.current > 0) {
+                            log('索引完成！共索引 ' + p.current + ' 张图片');
+                            document.getElementById('status').textContent = '已索引 ' + p.current + ' 张图片 (多算法特征提取完成)';
+                            document.getElementById('status').className = 'status ready';
+                            document.getElementById('uploadArea').classList.remove('disabled');
+                            isIndexed = true;
+                        } else {
+                            log('索引已停止');
+                            document.getElementById('status').textContent = '索引已停止';
+                        }
+                    }
+                } catch (e) {
+                    log('获取进度失败');
+                }
+            }, 500);
+        }
+
+        function triggerUpload() {
+            if (!isIndexed) {
+                log('请先完成索引！');
+                return;
+            }
+            document.getElementById('fileInput').click();
+        }
+
+        const uploadArea = document.getElementById('uploadArea');
+        uploadArea.addEventListener('dragover', function(e) { e.preventDefault(); if(isIndexed) uploadArea.style.background = '#e0e8ff'; });
+        uploadArea.addEventListener('dragleave', function() { uploadArea.style.background = ''; });
+        uploadArea.addEventListener('drop', function(e) {
+            e.preventDefault();
+            uploadArea.style.background = '';
+            if (!isIndexed) { log('请先完成索引！'); return; }
+            const file = e.dataTransfer.files[0];
+            if (file && file.type.startsWith('image/')) doSearch(file);
+        });
+
+        function searchImage(e) {
+            const file = e.target.files[0];
+            if (file) doSearch(file);
+        }
+
+        async function doSearch(file) {
+            const threshold = document.getElementById('thresholdSlider').value;
+            log('搜索图片: ' + file.name + ' (阈值: ' + threshold + '%)');
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                document.getElementById('preview').src = e.target.result;
+                document.getElementById('preview').style.display = 'block';
+            };
+            reader.readAsDataURL(file);
+
+            const formData = new FormData();
+            formData.append('image', file);
+            formData.append('threshold', threshold);
+
+            try {
+                const res = await fetch('/api/search', { method: 'POST', body: formData });
+                const data = await res.json();
+
+                if (data.success) {
+                    log('找到 ' + data.exact_matches.length + ' 个完全相同，' + data.similar_matches.length + ' 个相似 (阈值≥' + threshold + '%)');
+                    showResults(data.exact_matches, data.similar_matches, threshold);
+                } else {
+                    log('搜索失败: ' + data.error);
+                }
+            } catch (e) {
+                log('搜索错误: ' + e.message);
+            }
+        }
+
+        function getSimilarityClass(sim) {
+            if (sim >= 100) return 'exact';
+            if (sim >= 80) return 'high';
+            if (sim >= 60) return 'medium';
+            return 'low';
+        }
+
+        function showResults(exact, similar, threshold) {
+            document.getElementById('results').classList.remove('hidden');
+            document.getElementById('exactCount').textContent = exact.length;
+            document.getElementById('similarCount').textContent = similar.length;
+            document.getElementById('resultCount').textContent = '共找到 ' + (exact.length + similar.length) + ' 个匹配 (相似度阈值: ' + threshold + '%)';
+            renderList('exactList', exact);
+            renderList('similarList', similar);
+        }
+
+        function renderList(id, items) {
+            const c = document.getElementById(id);
+            if (items.length === 0) {
+                c.innerHTML = '<div style="text-align:center;padding:20px;color:#999;">没有找到匹配</div>';
+                return;
+            }
+            let html = '';
+            for (let i = 0; i < items.length; i++) {
+                const item = items[i];
+                const path = item.path;
+                const sim = item.similarity;
+                const simClass = getSimilarityClass(sim);
+                const escaped = path.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+                html += '<div class="result-item" data-path="' + path.replace(/"/g, '&quot;') + '" onmouseenter="showHoverPreview(event, this)" onmousemove="moveHoverPreview(event)" onmouseleave="hideHoverPreview()">';
+                html += '<span class="similarity-badge ' + simClass + '">' + sim + '%</span>';
+                html += '<div class="result-path">' + path + '</div>';
+                html += '<div class="result-buttons">';
+                html += '<button class="btn btn-primary btn-small" onclick="event.stopPropagation(); copyPath(\'' + escaped + '\', this)" title="复制路径">复制</button>';
+                html += '<button class="btn btn-success btn-small" onclick="event.stopPropagation(); openFolder(\'' + escaped + '\')" title="打开文件夹">打开</button>';
+                html += '</div>';
+                html += '</div>';
+            }
+            c.innerHTML = html;
+        }
+
+        // 悬停预览功能
+        const hoverPreview = document.getElementById('hoverPreview');
+        const previewImg = document.getElementById('previewImg');
+        const previewLoading = document.getElementById('previewLoading');
+        let currentPreviewPath = '';
+        let previewCache = {};
+
+        function showHoverPreview(e, el) {
+            const path = el.getAttribute('data-path');
+            if (!path) return;
+
+            currentPreviewPath = path;
+            hoverPreview.style.display = 'block';
+            moveHoverPreview(e);
+
+            // 检查缓存
+            if (previewCache[path]) {
+                previewLoading.style.display = 'none';
+                previewImg.src = previewCache[path];
+                previewImg.style.display = 'block';
+                return;
+            }
+
+            // 显示加载状态
+            previewLoading.style.display = 'flex';
+            previewImg.style.display = 'none';
+
+            // 加载图片
+            fetch('/api/preview-image', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ path: path })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (currentPreviewPath === path && data.success) {
+                    previewCache[path] = data.image;
+                    previewLoading.style.display = 'none';
+                    previewImg.src = data.image;
+                    previewImg.style.display = 'block';
+                }
+            })
+            .catch(() => {
+                if (currentPreviewPath === path) {
+                    previewLoading.textContent = '加载失败';
+                }
+            });
+        }
+
+        function moveHoverPreview(e) {
+            let x = e.clientX + 20;
+            let y = e.clientY + 20;
+
+            // 防止超出屏幕
+            const rect = hoverPreview.getBoundingClientRect();
+            if (x + rect.width > window.innerWidth) {
+                x = e.clientX - rect.width - 20;
+            }
+            if (y + rect.height > window.innerHeight) {
+                y = e.clientY - rect.height - 20;
+            }
+
+            hoverPreview.style.left = x + 'px';
+            hoverPreview.style.top = y + 'px';
+        }
+
+        function hideHoverPreview() {
+            hoverPreview.style.display = 'none';
+            currentPreviewPath = '';
+            previewLoading.style.display = 'flex';
+            previewLoading.textContent = '加载中...';
+            previewImg.style.display = 'none';
+        }
+
+        function showTab(tab, btn) {
+            var tabs = document.querySelectorAll('.tab');
+            for (var i = 0; i < tabs.length; i++) tabs[i].classList.remove('active');
+            btn.classList.add('active');
+            document.getElementById('exactList').className = (tab === 'exact') ? '' : 'hidden';
+            document.getElementById('similarList').className = (tab === 'similar') ? '' : 'hidden';
+        }
+
+        async function openFolder(path) {
+            log('打开: ' + path);
+            try {
+                const res = await fetch('/api/open-folder', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path: path })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    log('打开失败: ' + data.error);
+                }
+            } catch (e) {
+                log('打开失败: ' + e.message);
+            }
+        }
+
+        function copyPath(path, btn) {
+            navigator.clipboard.writeText(path).then(function() {
+                showCopySuccess(btn);
+            }).catch(function() {
+                // 备用方案
+                const textarea = document.createElement('textarea');
+                textarea.value = path;
+                document.body.appendChild(textarea);
+                textarea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textarea);
+                showCopySuccess(btn);
+            });
+        }
+
+        function showCopySuccess(btn) {
+            const originalText = btn.textContent;
+            btn.textContent = '已复制';
+            btn.classList.add('btn-copy-success');
+            setTimeout(function() {
+                btn.textContent = originalText;
+                btn.classList.remove('btn-copy-success');
+            }, 1500);
+        }
+
+        fetch('/api/status').then(function(r) { return r.json(); }).then(function(data) {
+            if (data.is_indexed) {
+                isIndexed = true;
+                document.getElementById('status').textContent = '已索引 ' + data.total_images + ' 张图片 (' + data.search_dir + ')';
+                document.getElementById('status').className = 'status ready';
+                document.getElementById('indexBtn').textContent = '重新索引';
+                document.getElementById('uploadArea').classList.remove('disabled');
+                document.getElementById('folderPath').value = data.search_dir;
+                log('已有索引: ' + data.total_images + ' 张图片');
+            }
+        });
+    </script>
+</body>
+</html>
